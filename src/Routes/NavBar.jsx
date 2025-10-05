@@ -37,7 +37,7 @@ function Navbar() {
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
         <button style={{ marginRight: "10px" }}>Post</button>
         
-        {currentUser && userDetails ? (
+        {currentUser ? (
           // Show when user is logged in
           <>
             <span style={{ 
@@ -45,7 +45,7 @@ function Navbar() {
               fontWeight: "bold",
               color: "#333"
             }}>
-              Welcome, {userDetails.name}
+              Welcome, {userDetails?.name || currentUser.displayName || currentUser.email.split('@')[0]}
             </span>
             <button 
               onClick={handleSignOut}

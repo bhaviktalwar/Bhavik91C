@@ -1,21 +1,21 @@
-import { addDoc, collection } from "firebase/firestore";
 import { useState } from "react";
-import { db } from "../init-firebase";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import "./SignUp.css";
 
 function SignUp() {
-  const userRef = collection(db, "User-data");
   const navigate = useNavigate();
+  const { signup } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
   const [user, setUser] = useState({
     name: "",
-    emailId: "",
+    email: "",
     password: "",
     confirmPassword: "",
   });
 
-  const { name, emailId, password, confirmPassword } = user;
+  const { name, email, password, confirmPassword } = user;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -33,19 +33,44 @@ function SignUp() {
       return;
     }
 
-    try {
-      const docRef = await addDoc(userRef, {
-        name,
-        emailId,
-        password,
-      });
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters long!");
+      return;
+    }
 
-      console.log("Document written with ID: ", docRef.id); 
-      alert("Registration successful! Please login.");
-      navigate("/login");
-    } catch (err) {
-      console.error("Error adding user:", err);
-      alert("Error registering user.");
+    setIsLoading(true);
+
+    try {
+      // Split the name into firstName and lastName
+      const nameParts = name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      await signup(email, password, { firstName, lastName });
+      alert("Registration successful! Welcome to Dev@Deakin!");
+      navigate("/");
+    } catch (error) {
+      console.error("Error registering user:", error);
+      
+      // Handle specific Firebase Auth errors
+      let errorMessage = "Error registering user. Please try again.";
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = "An account with this email already exists.";
+          break;
+        case 'auth/invalid-email':
+          errorMessage = "Invalid email address format.";
+          break;
+        case 'auth/weak-password':
+          errorMessage = "Password is too weak. Please choose a stronger password.";
+          break;
+        default:
+          errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -55,24 +80,24 @@ function SignUp() {
         <h2>Create a Dev@Deakin Account</h2>
         <form onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="name">Name</label>
+            <label htmlFor="name">Full Name</label>
             <input
               name="name"
               id="name"
               type="text"
               value={name}
               onChange={handleChange}
-              placeholder="Enter your name"
+              placeholder="Enter your full name (e.g., John Doe)"
               required
             />
           </div>
           <div>
-            <label htmlFor="emailId">Email ID</label>
+            <label htmlFor="email">Email</label>
             <input
-              name="emailId"
-              id="emailId"
+              name="email"
+              id="email"
               type="email"
-              value={emailId}
+              value={email}
               onChange={handleChange}
               placeholder="Enter your email"
               required
@@ -86,8 +111,9 @@ function SignUp() {
               type="password"
               value={password}
               onChange={handleChange}
-              placeholder="Enter your password"
+              placeholder="Enter your password (min 6 characters)"
               required
+              minLength="6"
             />
           </div>
           <div>
@@ -100,10 +126,17 @@ function SignUp() {
               onChange={handleChange}
               placeholder="Confirm your password"
               required
+              minLength="6"
             />
           </div>
-          <button type="submit">Register</button>
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? "Creating Account..." : "Register"}
+          </button>
         </form>
+        
+        <div style={{ marginTop: "15px", textAlign: "center" }}>
+          <p>Already have an account? <Link to="/login">Login here</Link></p>
+        </div>
       </div>
     </div>
   );

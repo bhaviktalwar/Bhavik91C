@@ -1,6 +1,4 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
 import { useState, useEffect } from "react";
-import { db } from "../init-firebase";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import "./Login2.css";
@@ -10,6 +8,7 @@ function Login() {
     email: "",
     password: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
 
   const { email, password } = user;
   const navigate = useNavigate();
@@ -32,33 +31,39 @@ function Login() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setIsLoading(true);
 
     try {
-      // Query Firestore for user by email
-      const userQuery = query(
-        collection(db, "User-data"),
-        where("emailId", "==", email)
-      );
-      const querySnapshot = await getDocs(userQuery);
-
-      if (querySnapshot.empty) {
-        alert("Invalid email or password");
-        return;
-      }
-
-      const userData = querySnapshot.docs[0].data();
-
-      if (userData.password === password) {
-        // Use the login function from AuthContext
-        login(userData);
-        alert(`Welcome, ${userData.name}`);
-        navigate("/"); // Redirect to home
-      } else {
-        alert("Invalid email or password");
-      }
+      await login(email, password);
+      navigate("/");
     } catch (error) {
       console.error("Error logging in:", error.message);
-      alert("Error logging in. Check console for details.");
+      
+      // Handle specific Firebase Auth errors
+      let errorMessage = "Error logging in. Please try again.";
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = "No account found with this email address.";
+          break;
+        case 'auth/wrong-password':
+          errorMessage = "Incorrect password. Please try again.";
+          break;
+        case 'auth/invalid-email':
+          errorMessage = "Invalid email address format.";
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = "Too many failed attempts. Please try again later.";
+          break;
+        case 'auth/invalid-credential':
+          errorMessage = "Invalid email or password.";
+          break;
+        default:
+          errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -88,7 +93,9 @@ function Login() {
               autoComplete="new-password"
               required
             />
-            <button type="submit">Login</button>
+            <button type="submit" disabled={isLoading}>
+              {isLoading ? "Logging in..." : "Login"}
+            </button>
           </form>
         </div>
       </div>
